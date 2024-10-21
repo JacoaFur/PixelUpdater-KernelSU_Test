@@ -76,7 +76,11 @@ class SettingsViewModel : ViewModel() {
 
 fun refreshMagiskStatus() {
     val status = try {
-        val versionString = Shell.cmd("magisk -v").exec().out.first().split(":".toRegex()).first()
+        val magiskOutput = Shell.cmd("magisk -v").exec().out.first()
+        if (magiskOutput.contains("inaccessible or not found")) {
+    throw Exception("Magisk inaccessible or not found")
+}
+    val versionString = magiskOutput.split(":".toRegex()).first()
         val versionCode = Shell.cmd("magisk -V").exec().out.first()
         MagiskStatus.Success(
             true,
