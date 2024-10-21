@@ -85,7 +85,7 @@ fun refreshMagiskStatus() {
     } catch (e: Exception) {
         Log.w(TAG, "Failed to query magisk status, trying ksud", e)
         try {
-            val versionCode = Shell.cmd("ksud -V").exec().out.first()
+            val versionCode = Shell.cmd("su -c ksud -V").exec().out.first()
             MagiskStatus.Success(
                 true,
                 "KernelSU ($versionCode)"
