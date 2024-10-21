@@ -455,21 +455,26 @@ android.applicationVariants.all {
         }
     }
 
-    tasks.register("flash${capitalized}") {
-        dependsOn.add("push${capitalized}Zip")
-        val output = tasks.named("zip${capitalized}").get().outputs.files.singleFile
-        doLast {
-            val selectedDevice = getSelectedDevice()
-            exec {
-                println("Flashing ${output.name} to device $selectedDevice ...")
+tasks.register("flash${capitalized}") {
+    dependsOn.add("push${capitalized}Zip")
+    val output = tasks.named("zip${capitalized}").get().outputs.files.singleFile
+    doLast {
+        val selectedDevice = getSelectedDevice()
+        exec {
+            println("Flashing ${output.name} to device $selectedDevice ...")
+            try {
                 commandLine(android.adbExecutable, "-s", selectedDevice, "shell", "su", "-c", "magisk --install-module /data/local/tmp/${output.name}")
-            }
-            exec {
-                println("Rebooting device $selectedDevice ...")
-                commandLine(android.adbExecutable, "-s", selectedDevice, "reboot")
+            } catch (e: Exception) {
+                println("Magisk install failed, trying ksud...")
+                commandLine(android.adbExecutable, "-s", selectedDevice, "shell", "su", "-c", "ksud module install /data/local/tmp/${output.name}")
             }
         }
+        exec {
+            println("Rebooting device $selectedDevice ...")
+            commandLine(android.adbExecutable, "-s", selectedDevice, "reboot")
+        }
     }
+}
 
     tasks.register("updateJson${capitalized}") {
         inputs.property("projectUrl", projectUrl)
