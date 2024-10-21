@@ -630,10 +630,10 @@ class UpdaterThread(
 
     private fun checkBoot(): Boolean {
         val status = Shell.cmd(
-            "./magiskboot unpack \"\$BOOTIMAGE\"",
-            "if [ -e ramdisk.cpio ]; then ./magiskboot cpio ramdisk.cpio test; else (exit 0); fi"
+            "su -c magiskboot unpack \"\$BOOTIMAGE\"",
+            "if [ -e ramdisk.cpio ]; then su -c magiskboot cpio ramdisk.cpio test; else (exit 0); fi"
         ).exec().code
-        Shell.cmd("./magiskboot cleanup").exec()
+        Shell.cmd("su -c magiskboot cleanup").exec()
         return status == 1
     }
 
@@ -1033,17 +1033,24 @@ class UpdaterThread(
 
         // https://github.com/topjohnwu/Magisk/blob/v26.3/app/src/main/java/com/topjohnwu/magisk/core/utils/ShellInit.kt#L65-69
         // https://github.com/topjohnwu/Magisk/blob/v26.3/app/src/main/res/raw/manager.sh#L232-L240
-        private fun shellInit() : Boolean {
-            if (Shell.cmd("[ ! -z \$SLOT ]").exec().isSuccess) {
-                return true
-            }
-            return Shell.cmd(
-                "cd $MAGISKBIN",
-                ". ./util_functions.sh",
-                "mount_partitions",
-                "get_flags"
-            ).exec().isSuccess
-        }
+private fun shellInit(): Boolean {
+    if (Shell.cmd("[ ! -z \$SLOT ]").exec().isSuccess) {
+        return true
+    }
+    val mountPartitionsCmds = listOf(
+        "SLOT=\$(grep -oP 'androidboot.slot_suffix=\\K\\S*' /proc/cmdline)",
+        "[ -z \"\$SLOT\" ] && SLOT=\$(grep -oP 'androidboot.slot=\\K\\S*' /proc/cmdline) && [ -z \"\$SLOT\" ] || SLOT=_\$SLOT",
+        "[ \"\$SLOT\" = 'normal' ] && unset SLOT",
+        "mount -o ro /dev/block/bootdevice/by-name/system\$SLOT /system"
+    )
+    val getFlagsCmds = listOf(
+        "[ -n \"\$(grep '/data ' /proc/mounts | grep 'dm-')\" ] && ISENCRYPTED=true || ISENCRYPTED=false",
+        "PATCHVBMETAFLAG=\$(find /dev/block/by-name/vbmeta || echo true)",
+        "KEEPVERITY=\$(getprop ro.boot.veritymode || echo false)",
+        "KEEPFORCEENCRYPT=\$(getprop ro.crypto.state || echo false)"
+    )
+    return Shell.cmd(mountPartitionsCmds + getFlagsCmds).exec().isSuccess
+}
 
         fun getVbmetaFlags(active: Boolean? = false): Byte? {
             val slot = SystemPropertiesProxy.get("ro.boot.slot_suffix")
