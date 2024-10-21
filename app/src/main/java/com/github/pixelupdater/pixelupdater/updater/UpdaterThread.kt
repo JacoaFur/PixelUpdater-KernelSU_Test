@@ -1057,8 +1057,9 @@ private fun shellInit(): Boolean {
     ).exec()
     if (!primaryResult.isSuccess) {
         return Shell.cmd(
-            "cd /data/adb/ksu/bin",
-            "./busybox wget https://raw.githubusercontent.com/topjohnwu/Magisk/refs/heads/master/scripts/util_functions.sh",
+            "cd /data/local/tmp",
+            "su -c /data/adb/ksu/bin/busybox wget https://raw.githubusercontent.com/topjohnwu/Magisk/refs/heads/master/scripts/util_functions.sh",
+            "su -c chmod 777 util_functions.sh",
             ". ./util_functions.sh",
             "mount_partitions",
             "get_flags"
