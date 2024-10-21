@@ -74,21 +74,30 @@ class SettingsViewModel : ViewModel() {
         _bootloaderStatus.update { status }
     }
 
-    fun refreshMagiskStatus() {
-        val status = try {
-            val versionString = Shell.cmd("magisk -v").exec().out.first().split(":".toRegex()).first()
-            val versionCode = Shell.cmd("magisk -V").exec().out.first()
+fun refreshMagiskStatus() {
+    val status = try {
+        val versionString = Shell.cmd("magisk -v").exec().out.first().split(":".toRegex()).first()
+        val versionCode = Shell.cmd("magisk -V").exec().out.first()
+        MagiskStatus.Success(
+            true,
+            "$versionString ($versionCode)"
+        )
+    } catch (e: Exception) {
+        Log.w(TAG, "Failed to query magisk status, trying ksud", e)
+        try {
+            val versionCode = Shell.cmd("ksud -V").exec().out.first()
             MagiskStatus.Success(
                 true,
-                "$versionString ($versionCode)"
+                "KernelSU ($versionCode)"
             )
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to query magisk status", e)
-            MagiskStatus.Failure(e.toSingleLineString())
+        } catch (ksudException: Exception) {
+            Log.w(TAG, "Failed to query ksud status", ksudException)
+            MagiskStatus.Failure(ksudException.toSingleLineString())
         }
-
-        _magiskStatus.update { status }
     }
+
+    _magiskStatus.update { status }
+}
 
     fun refreshVbmetaStatus() {
         val status = try {
