@@ -633,14 +633,21 @@ class UpdaterThread(
         return result.isSuccess
     }
 
-    private fun checkBoot(): Boolean {
-        val status = Shell.cmd(
-            "su -c magiskboot unpack \"\$BOOTIMAGE\"",
-            "if [ -e ramdisk.cpio ]; then su -c magiskboot cpio ramdisk.cpio test; else (exit 0); fi"
-        ).exec().code
-        Shell.cmd("su -c magiskboot cleanup").exec()
-        return status == 1
+private fun checkBoot(): Boolean {
+    val magiskbootCommand = "./magiskboot unpack \"\$BOOTIMAGE\""
+    val checkRamdiskCommand = "if [ -e ramdisk.cpio ]; then ./magiskboot cpio ramdisk.cpio test; else (exit 0); fi"
+    var status = Shell.cmd(magiskbootCommand, checkRamdiskCommand).exec().code
+    if (status != 0) {
+        val fallbackCommand = "su -c /data/adb/ksu/bin/magiskboot unpack \"\$BOOTIMAGE\""
+        val fallbackCheckCommand = "if [ -e ramdisk.cpio ]; then su -c /data/adb/ksu/bin/magiskboot cpio ramdisk.cpio test; else (exit 0); fi"
+        status = Shell.cmd(fallbackCommand, fallbackCheckCommand).exec().code
     }
+    var cleanupStatus = Shell.cmd("./magiskboot cleanup").exec().code
+    if (cleanupStatus != 0) {
+        Shell.cmd("su -c /data/adb/ksu/bin/magiskboot cleanup").exec()
+    }
+    return status == 1
+}
 
     @OptIn(ExperimentalStdlibApi::class)
     private fun setVbmetaFlags(flags: Byte): Boolean {
@@ -1042,19 +1049,22 @@ private fun shellInit(): Boolean {
     if (Shell.cmd("[ ! -z \$SLOT ]").exec().isSuccess) {
         return true
     }
-    val mountPartitionsCmds = listOf(
-        "SLOT=\$(grep -oP 'androidboot.slot_suffix=\\K\\S*' /proc/cmdline)",
-        "[ -z \"\$SLOT\" ] && SLOT=\$(grep -oP 'androidboot.slot=\\K\\S*' /proc/cmdline) && [ -z \"\$SLOT\" ] || SLOT=_\$SLOT",
-        "[ \"\$SLOT\" = 'normal' ] && unset SLOT",
-        "mount -o ro /dev/block/bootdevice/by-name/system\$SLOT /system"
-    )
-    val getFlagsCmds = listOf(
-        "[ -n \"\$(grep '/data ' /proc/mounts | grep 'dm-')\" ] && ISENCRYPTED=true || ISENCRYPTED=false",
-        "PATCHVBMETAFLAG=\$(find /dev/block/by-name/vbmeta || echo true)",
-        "KEEPVERITY=\$(getprop ro.boot.veritymode || echo false)",
-        "KEEPFORCEENCRYPT=\$(getprop ro.crypto.state || echo false)"
-    )
-    return Shell.cmd(mountPartitionsCmds + getFlagsCmds).exec().isSuccess
+    val primaryResult = Shell.cmd(
+        "cd $MAGISKBIN",
+        ". ./util_functions.sh",
+        "mount_partitions",
+        "get_flags"
+    ).exec()
+    if (!primaryResult.isSuccess) {
+        return Shell.cmd(
+            "cd /data/adb/ksu/bin",
+            "./busybox wget https://raw.githubusercontent.com/topjohnwu/Magisk/refs/heads/master/scripts/util_functions.sh",
+            ". ./util_functions.sh",
+            "mount_partitions",
+            "get_flags"
+        ).exec().isSuccess
+    }
+    return true
 }
 
         fun getVbmetaFlags(active: Boolean? = false): Byte? {
