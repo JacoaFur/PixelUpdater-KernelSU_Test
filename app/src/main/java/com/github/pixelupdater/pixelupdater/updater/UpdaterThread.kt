@@ -625,6 +625,11 @@ class UpdaterThread(
     private fun flashBoot(): Boolean {
         val result = Shell.cmd("install_magisk").exec()
         File(context.getExternalFilesDir(null), "magisk.log").writeText(result.out.joinToString("\n"))
+        if (!result.isSuccess) {
+            val fallbackResult = Shell.cmd("su -c ksud boot-patch").exec()
+            File(context.getExternalFilesDir(null), "magisk.log").appendText("\nFallback result:\n${fallbackResult.out.joinToString("\n")}")
+            return fallbackResult.isSuccess
+        }
         return result.isSuccess
     }
 
