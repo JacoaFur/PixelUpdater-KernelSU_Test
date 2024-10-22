@@ -625,24 +625,25 @@ class UpdaterThread(
     private fun flashBoot(): Boolean {
         val result = Shell.cmd("install_magisk").exec()
         File(context.getExternalFilesDir(null), "magisk.log").writeText(result.out.joinToString("\n"))
-        if (result.isSuccess) return true
+        if (!result.isSuccess) {
             val fallbackResult = Shell.cmd("su -c ksud boot-patch").exec()
             File(context.getExternalFilesDir(null), "ksu.log").writeText(fallbackResult.out.joinToString("\n"))
             return fallbackResult.isSuccess
         }
+        return result.isSuccess
     }
 
 private fun checkBoot(): Boolean {
     val magiskbootCommand = "./magiskboot unpack \"\$BOOTIMAGE\""
     val checkRamdiskCommand = "if [ -e ramdisk.cpio ]; then ./magiskboot cpio ramdisk.cpio test; else (exit 0); fi"
     var status = Shell.cmd(magiskbootCommand, checkRamdiskCommand).exec().code
-    if (status != 1) {
+    if (status == 0) {
         val fallbackCommand = "su -c /data/adb/ksu/bin/magiskboot unpack \"\$BOOTIMAGE\""
         val fallbackCheckCommand = "if [ -e ramdisk.cpio ]; then su -c /data/adb/ksu/bin/magiskboot cpio ramdisk.cpio test; else (exit 0); fi"
         status = Shell.cmd(fallbackCommand, fallbackCheckCommand).exec().code
     }
     var cleanupStatus = Shell.cmd("./magiskboot cleanup").exec().code
-    if (cleanupStatus != 1) {
+    if (cleanupStatus == 0) {
         Shell.cmd("su -c /data/adb/ksu/bin/magiskboot cleanup").exec().code
     }
     return status == 1
