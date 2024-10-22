@@ -627,10 +627,9 @@ class UpdaterThread(
         File(context.getExternalFilesDir(null), "magisk.log").writeText(result.out.joinToString("\n"))
         if (result.isSuccess) return true
             val fallbackResult = Shell.cmd("su -c ksud boot-patch").exec()
-            File(context.getExternalFilesDir(null), "ksu.log").writeText(result.out.joinToString("\n"))
+            File(context.getExternalFilesDir(null), "ksu.log").writeText(fallbackResult.out.joinToString("\n"))
             return fallbackResult.isSuccess
         }
-        return result.isSuccess
     }
 
 private fun checkBoot(): Boolean {
@@ -644,7 +643,7 @@ private fun checkBoot(): Boolean {
     }
     var cleanupStatus = Shell.cmd("./magiskboot cleanup").exec().code
     if (cleanupStatus != 1) {
-        Shell.cmd("su -c /data/adb/ksu/bin/magiskboot cleanup").exec()
+        Shell.cmd("su -c /data/adb/ksu/bin/magiskboot cleanup").exec().code
     }
     return status == 1
 }
